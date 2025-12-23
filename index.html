@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Pinyin ⇄ R1 ⇄ R1a</title>
+<style>
+body {
+  max-width: 800px;
+  margin: 2rem auto;
+}
+textarea {
+  width: 100%;
+  height: 120px;
+  margin: 0.5rem 0;
+}
+button {
+  margin: 0.25rem;
+  padding: 0.5rem 1rem;
+}
+</style>
+</head>
+<body>
+
+<h2>Pinyin ⇄ R1 / R1a Converter</h2>
+
+<textarea id="input" placeholder="Space-separated syllables, tone numbers at end"></textarea>
+
+<div>
+  <button onclick="run('p2r1')">Pinyin → R1</button>
+  <button onclick="run('p2r1a')">Pinyin → R1a</button>
+  <button onclick="run('r12p')">R1 → Pinyin</button>
+  <button onclick="run('r1a2p')">R1a → Pinyin</button>
+</div>
+
+<textarea id="output" readonly></textarea>
+
+<script>
+// ================= INITIAL TABLES =================
+
+const PINYIN_INITIALS = [
+  "zh","ch","sh","j","q","x","z","c","s","b","p","m","f",
+  "d","t","n","l","g","k","h","y","w"
+];
+
+const P2R1_INIT = {
+  zh:"ž", ch:"č", sh:"š",
+  j:"dž", q:"ch", x:"s",
+  z:"dz", c:"ts",
+  y:"j", w:"w"
+};
+
+const R1_INIT_REV = {
+  "ž":"zh", "č":"ch", "š":"sh",
+  "dž":"j", "ch":"q", "s":"x",
+  "dz":"z", "ts":"c",
+  "j":"y", "w":"w"
+};
+
+// ================= HELPERS =================
+
+function splitTone(s) {
+  const m = s.match(/(\d)$/);
+  return m ? [s.slice(0,-1), m[1]] : [s,""];
+}
+
+function splitInitial(s) {
+  for (let i of PINYIN_INITIALS) {
+    if (s.startsWith(i)) return [i, s.slice(i.length)];
+  }
+  return ["", s];
+}
+
+// ================= PINYIN → R1 =================
+
+function pinyinToR1(s, ascii=false) {
+  let [base, tone] = splitTone(s);
+  let [init, fin] = splitInitial(base);
+
+  let rInit = P2R1_INIT[init] || init;
+
+  // y-series always written
+  fin = fin
+    .replace(/^ia/,"ya")
+    .replace(/^ian/,"yan")
+    .replace(/^iang/,"yang")
+    .replace(/^iao/,"yao")
+    .replace(/^ie/,"ye")
+    .replace(/^iong/,"yong")
+    .replace(/^iu/,"yo");
+
+  // w-series
+  fin = fin
+    .replace(/^ua/,"wa")
+    .replace(/^uai/,"wai")
+    .replace(/^uan/,"wan")
+    .replace(/^uo/,"wo")
+    .replace(/^ui/,"uei");
+
+  // apical i
+  if (fin === "i") {
+    if (["dz","ts","s"].includes(rInit)) fin = ascii ? "ii" : "ï";
+    else if (["ž","č","š"].includes(rInit)) fin = "r";
+  }
+
+  // ü handling
+  if (fin.startsWith("ü")) fin = ascii ? fin.replace("ü","v") : fin;
+
+  return rInit + fin + tone;
+}
+
+// ================= R1 → PINYIN =================
+
+function r1ToPinyin(s, ascii=false) {
+  let [base, tone] = splitTone(s);
+
+  let init = "";
+  let fin = base;
+
+  for (let k of Object.keys(R1_INIT_REV).sort((a,b)=>b.length-a.length)) {
+    if (base.startsWith(k)) {
+      init = R1_INIT_REV[k];
+      fin = base.slice(k.length);
+      break;
+    }
+  }
+
+  // undo apical i
+  if (fin === "r" || fin === "ï" || fin === "ii") fin = "i";
+
+  // undo y-series
+  fin = fin
+    .replace(/^ya/,"ia")
+    .replace(/^yan/,"ian")
+    .replace(/^yang/,"iang")
+    .replace(/^yao/,"iao")
+    .replace(/^ye/,"ie")
+    .replace(/^yong/,"iong")
+    .replace(/^yo/,"iu");
+
+  // undo w-series
+  fin = fin
+    .replace(/^wa/,"ua")
+    .replace(/^wai/,"uai")
+    .replace(/^wan/,"uan")
+    .replace(/^wo/,"uo")
+    .replace(/^uei/,"ui");
+
+  if (fin.startsWith("v")) fin = fin.replace("v","ü");
+
+  return init + fin + tone;
+}
+
+// ================= RUN =================
+
+function run(mode) {
+  const input = document.getElementById("input").value.trim();
+  if (!input) return;
+
+  const out = input.split(/\s+/).map(w => {
+    if (mode === "p2r1") return pinyinToR1(w,false);
+    if (mode === "p2r1a") return pinyinToR1(w,true);
+    if (mode === "r12p") return r1ToPinyin(w,false);
+    if (mode === "r1a2p") return r1ToPinyin(w,true);
+  });
+
+  document.getElementById("output").value = out.join(" ");
+}
+</script>
+
+</body>
+</html>
